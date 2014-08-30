@@ -82,8 +82,8 @@ class Scorecard extends PolymerElement {
       criterion.add(new ScoreCriteria('Readme', 'None', 0, 3));
     }, test: (e) => e is NotFound));
 
-    var openPR = getCount('$githubUrl/repos/$shortRepo/pulls?state=open&per_page=1');
-    var closedPR = getCount('$githubUrl/repos/$shortRepo/pulls?state=closed&per_page=1');
+    var openPR = getPullRequestCount(repoSlug, "open");
+    var closedPR = getPullRequestCount(repoSlug, "closed");
 
     callApi(Future.wait([openPR, closedPR]).then((values) {
       int open = values[0];
@@ -96,23 +96,30 @@ class Scorecard extends PolymerElement {
       criterion.add(new ScoreCriteria('Pull Requests', '$open open, $closed closed', totalScore, 8));
     }));
 
-    callApi(getCount('$githubUrl/repos/$shortRepo/contributors?per_page=1').then((count) {
+    callApi(getContributorsCount(repoSlug).then((count) {
       criterion.add(new ScoreCriteria.fromSteps('Contributors', count, [2, 3, 8, 15, 40], 5));
     }));
 
-    var openIssues = getCount('$githubUrl/repos/$shortRepo/issues?state=open&per_page=1');
-    var closedIssues = getCount('$githubUrl/repos/$shortRepo/issues?state=closed&per_page=1');
+    var co = new Completer();
+    
+    Future<int> openIssues = co.future;
+    Future<int> closedIssues;
+    
+    github.repository(repoSlug).then((repository) {
+      co.complete(repository.openIssuesCount);
+      closedIssues = repository.issues().length;
+    }).then((_) {
+      callApi(Future.wait([openIssues, closedIssues]).then((values) {
+        int open = values[0];
+        int closed = values[1];
 
-    callApi(Future.wait([openIssues, closedIssues]).then((values) {
-      int open = values[0];
-      int closed = values[1];
+        int ratioScore = closed > 0 ? getScore(open / closed, [0.3, 0.15], descending: true) : 0;
+        int issueScore = getScore(open + closed, [1, 5, 15, 50]);
+        int totalScore = ratioScore > 0 ? issueScore + ((issueScore / 4) * ratioScore).round() : issueScore;
 
-      int ratioScore = closed > 0 ? getScore(open / closed, [0.3, 0.15], descending: true) : 0;
-      int issueScore = getScore(open + closed, [1, 5, 15, 50]);
-      int totalScore = ratioScore > 0 ? issueScore + ((issueScore / 4) * ratioScore).round() : issueScore;
-
-      criterion.add(new ScoreCriteria('Issues', '$open open, $closed closed', totalScore, 6));
-    }));
+        criterion.add(new ScoreCriteria('Issues', '$open open, $closed closed', totalScore, 6));
+      }));
+    });
   }
 
   int getScore(num value, List steps, {bool descending: false}) {
@@ -152,27 +159,15 @@ class Scorecard extends PolymerElement {
     });
   }
 
-  Future<int> getCount(String api) {
-    var completer = new Completer();
-
-    var req = new HttpRequest();
-    github.request("HEAD", api).then((response) {
-      int count = 0;
-
-      var linkHeader = response.headers['link'];
-
-      if (linkHeader != null) {
-        var regex = new RegExp(r'page=(\d+)>; rel="last"');
-        var match = regex.firstMatch(linkHeader);
-
-        if (match != null) {
-          count = int.parse(match.group(1));
-        }
-      }
-
-      completer.complete(count);
+  Future<int> getPullRequestCount(RepositorySlug slug, String state) {
+    return github.repository(slug).then((repository) {
+      return repository.pullRequests(state: state).length;
     });
-
-    return completer.future;
+  }
+  
+  Future<int> getContributorsCount(RepositorySlug slug) {
+    return github.repository(slug).then((repository) {
+      return repository.collaborators().length;
+    });
   }
 }

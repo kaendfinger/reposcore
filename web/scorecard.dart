@@ -32,7 +32,7 @@ class Scorecard extends PolymerElement {
   }
 
   void handleKeyUp(KeyboardEvent event) {
-    if(event.keyCode == KeyCode.ENTER) {
+    if (event.keyCode == KeyCode.ENTER) {
       processRepo();
     }
   }
@@ -41,7 +41,7 @@ class Scorecard extends PolymerElement {
 
     var urlRegex = new RegExp(r'(https?:\/\/github\.com\/)?([^\/]+\/[^\/]+)');
     var repoMatch = urlRegex.firstMatch(repo);
-    if(repoMatch == null) {
+    if (repoMatch == null) {
       searchedForRepo = true;
       repoFound = false;
       return;
@@ -62,24 +62,23 @@ class Scorecard extends PolymerElement {
 
       criterion.add(new ScoreCriteria.fromSteps('Stargazers', repo.stargazersCount, [1, 10, 50, 100, 150], 5));
       criterion.add(new ScoreCriteria.fromSteps('Forks', repo.forksCount, [1, 10, 25, 50, 100], 5));
-      int daysSinceUpdate =  new DateTime.now().difference(repo.pushedAt).inDays;
-      int lastUpdateScore = daysSinceUpdate < 7  ? 3 :
-                            daysSinceUpdate < 30 ? 2 :
-                            daysSinceUpdate < 60 ? 1 : 0;
+      int daysSinceUpdate = new DateTime.now().difference(repo.pushedAt).inDays;
+      int lastUpdateScore = daysSinceUpdate < 7 ? 3 : daysSinceUpdate < 30 ? 2 : daysSinceUpdate < 60 ? 1 : 0;
       criterion.add(new ScoreCriteria('Last Updated', new DateFormat('MMM d, yyyy').format(repo.pushedAt), lastUpdateScore, 3));
       description = repo.description;
-    })
-    .catchError((e) => repoFound = false, test: (e) => e is NotFound)
-    .whenComplete(() => searchedForRepo = true));
+    }).catchError((e) => repoFound = false, test: (e) => e is NotFound).whenComplete(() => searchedForRepo = true));
 
     // Rank README file
     callApi(github.readme(repoSlug).then((file) {
-      var scoreMap = {1: 'Tiny', 500: 'Short', 1800: 'Long'};
+      var scoreMap = {
+        1: 'Tiny',
+        500: 'Short',
+        1800: 'Long'
+      };
       var keys = scoreMap.keys.toList();
       int score = getScore(file.size, keys);
-      criterion.add(new ScoreCriteria('Readme', scoreMap[keys[score-1]], score, 3));
-    })
-    .catchError((e) {
+      criterion.add(new ScoreCriteria('Readme', scoreMap[keys[score - 1]], score, 3));
+    }).catchError((e) {
       criterion.add(new ScoreCriteria('Readme', 'None', 0, 3));
     }, test: (e) => e is NotFound));
 
@@ -119,12 +118,12 @@ class Scorecard extends PolymerElement {
   int getScore(num value, List steps, {bool descending: false}) {
     int score = 0;
 
-    if(descending) {
-      while(score < steps.length && value <= steps[score]) {
+    if (descending) {
+      while (score < steps.length && value <= steps[score]) {
         score++;
       }
     } else {
-      while(score < steps.length && value >= steps[score]) {
+      while (score < steps.length && value >= steps[score]) {
         score++;
       }
     }
@@ -136,14 +135,13 @@ class Scorecard extends PolymerElement {
     rateLimitHit = false;
 
     api.catchError((e) {
-        searchedForRepo = false;
-        github.rateLimit().then((rateLimit) {
-          rateLimitReset = new DateFormat('MMM d, yyyy hh:mm a').format(rateLimit.resets);
-          rateLimitHit = rateLimit.remaining == 0;
-          searchedForRepo = true;
-        });
-    })
-    .whenComplete(() {
+      searchedForRepo = false;
+      github.rateLimit().then((rateLimit) {
+        rateLimitReset = new DateFormat('MMM d, yyyy hh:mm a').format(rateLimit.resets);
+        rateLimitHit = rateLimit.remaining == 0;
+        searchedForRepo = true;
+      });
+    }).whenComplete(() {
       // Update score
       int score = 0;
       int maxScore = 0;
@@ -158,16 +156,16 @@ class Scorecard extends PolymerElement {
     var completer = new Completer();
 
     var req = new HttpRequest();
-    github.request("GET", api).then((response) {
+    github.request("HEAD", api).then((response) {
       int count = 0;
 
       var linkHeader = response.headers['link'];
 
-      if(linkHeader != null) {
+      if (linkHeader != null) {
         var regex = new RegExp(r'page=(\d+)>; rel="last"');
         var match = regex.firstMatch(linkHeader);
 
-        if(match != null) {
+        if (match != null) {
           count = int.parse(match.group(1));
         }
       }
@@ -178,4 +176,3 @@ class Scorecard extends PolymerElement {
     return completer.future;
   }
 }
-

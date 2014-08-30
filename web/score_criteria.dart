@@ -24,8 +24,7 @@ class ScoreCriteria {
     this.visibleValue = visibleValue;
   }
 
-  ScoreCriteria.fromSteps(String name, dynamic value, List scoreSteps, int maxScore, {Function visibleValue}) :
-    this(name, value, _getScore(value, scoreSteps), maxScore, visibleValue: visibleValue);
+  ScoreCriteria.fromSteps(String name, dynamic value, List scoreSteps, int maxScore, {Function visibleValue}) : this(name, value, _getScore(value, scoreSteps), maxScore, visibleValue: visibleValue);
 
   calculateScore(List steps) {
     score = _getScore(value, steps);
@@ -33,19 +32,18 @@ class ScoreCriteria {
 
   static int _getScore(dynamic value, List steps) {
     int score = 0;
-    while(score < steps.length && value >= steps[score] ) {
+    while (score < steps.length && value >= steps[score]) {
       score++;
     }
     return score;
   }
 
   String get scoreClass {
-    if(maxScore == 0)
-      return '';
+    if (maxScore == 0) return '';
 
     num percent = score / maxScore;
     var scoreClasses = ['Fail', 'Bad', 'Decent', 'Good', 'Excellent'];
-    return scoreClasses[max((percent * (scoreClasses.length)).round()-1, 0)];
+    return scoreClasses[max((percent * (scoreClasses.length)).round() - 1, 0)];
   }
 
 }
